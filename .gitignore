@@ -2,6 +2,7 @@
 .idea/
 .idea/*
 */.idea/workspace.xml */.idea/tasks.xml
+*.pdf
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
