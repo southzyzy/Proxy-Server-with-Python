@@ -1,41 +1,80 @@
-import socket
-import re
+import socket, select
 import threading
 import socketserver
 
-http_port = 80
 BUFLEN = 8192
+__version__ = '0.1.0 Draft 1'
+VERSION = 'Proxy/' + __version__
 
 
 class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        data = str(self.request.recv(BUFLEN), 'ascii')
-        host = re.search("(Host:)\s(.+)", data)
-        url = host.group(2)[:-1]
+        self.buffer_data = self.request.recv(BUFLEN)
 
-        if ':' in url:
-            self.request.close()
+        self.conn_method, self.url, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
+
+        if self.conn_method == 'CONNECT':
+            self.connect(self.host)
+            self.request.send(
+                bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
+            self.buffer_data = b''
+            self.send()
+
+        elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
+            http_path = self.url[7:]
+            slash = http_path.find('/')
+            host = http_path[:slash]
+
+            self.connect(host)
+            self.client_sock.send(self.buffer_data)
+
+            self.buffer_data = b''
+            self.send()
+
+        self.request.close()
+        self.request.server_close()
+
+    def data_handler(self, data):
+        data_split = data.split()
+        conn_method = data_split[0]
+        url = data_split[1]
+        protocol = data_split[2]
+        host = data_split[4]
+        return (conn_method, url, protocol, host)
+
+    def connect(self, host):
+        host_port = host.find(":")
+        if host_port != -1:
+            port_no = int(host[host_port + 1:])
+            host = host[:host_port]
         else:
-            address = (url, http_port)
-            # print("[*] Processing {}".format(address) + " request for client")
-            self.connect(data, address)
+            port_no = 80
 
-    def connect(self, data, address):
+        # Get the address information
+        address = (host, port_no)
+
         # create the socket connection
-        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        s.connect(address)
-        s.send(data.encode('utf-8'))
+        self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.client_sock.connect(address)
 
-        response = b''
+    def send(self):
+        socs = [self.request, self.client_sock]
+        count = 0
         while True:
-            response += s.recv(BUFLEN)
-            eol = response.endswith(bytes('\r\n\r\n', 'utf-8'))
-            if eol:
+            count += 1
+            (recv, _, error) = select.select(socs, [], socs, 3)
+            if error:
                 break
-
-        s.close()
-        print(response)
-        self.request.sendall(response)
+            if recv:
+                for in_ in recv:
+                    data = in_.recv(BUFLEN)
+                    if in_ is self.request:
+                        out = self.client_sock
+                    else:
+                        out = self.request
+                    if data:
+                        out.send(data)
+                        count = 0
 
 
 class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
