@@ -22,28 +22,35 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         self.conn_method, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
 
         if self.conn_method == 'CONNECT':
-            self.connect(self.host)
-            self.request.send(bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
-            self.buffer_data = b''
-            self.view_page()
+            try:
+                self.connect(self.host)
+                self.request.send(
+                    bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
+                print("[*] Request for HTTPS: %s Done" % self.host)
+                self.buffer_data = b''
+                self.view_page()
+            except:
+                pass
 
         elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
-            self.connect(self.host)
-            self.client_sock.send(self.buffer_data)
-
-            self.buffer_data = b''
-            self.view_page()
+            try:
+                self.connect(self.host)
+                self.client_sock.send(self.buffer_data)
+                print("[*] Request for HTTP: %s Done" % self.host)
+                self.buffer_data = b''
+                self.view_page()
+            except:
+                pass
 
         self.request.close()
 
     def data_handler(self, data):
         data_split = data.split()
         conn_method = data_split[0]
-
         protocol = data_split[2]
-
         host = data_split[4]
-        if url_validation(host) == False:
+
+        if url_validation(host) is False:
             self.request.close()
 
         return (conn_method, protocol, host)
@@ -82,8 +89,11 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                     else:
                         out = self.request
                     if data:
-                        out.send(data)
-                        time_counter = 0
+                        try:
+                            out.send(data)
+                            time_counter = 0
+                        except:
+                            pass
 
             if time_counter == TIMEOUT:
                 break
