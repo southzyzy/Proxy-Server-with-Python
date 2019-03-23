@@ -25,14 +25,14 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
             self.connect(self.host)
             self.request.send(bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
             self.buffer_data = b''
-            self.send()
+            self.view_page()
 
         elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
             self.connect(self.host)
             self.client_sock.send(self.buffer_data)
 
             self.buffer_data = b''
-            self.send()
+            self.view_page()
 
         self.request.close()
 
@@ -66,7 +66,7 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
         except:
             pass
 
-    def send(self):
+    def view_page(self):
         socs = [self.request, self.client_sock]
         time_counter = 0
         while True:
