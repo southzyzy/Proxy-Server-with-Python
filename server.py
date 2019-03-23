@@ -44,7 +44,6 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
 
         host = data_split[4]
         if url_validation(host) == False:
-            print("Closing Connection")
             self.request.close()
 
         return (conn_method, protocol, host)
