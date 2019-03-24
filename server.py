@@ -117,8 +117,8 @@ class TCPHandler(socketserver.BaseRequestHandler):
             if error:  # break if an error occur during the trasmission
                 break
             if recv:  # if the server reply back
-                for buffer in recv: # loop through every reply by the server
-                    data = buffer.recv(BUFLEN) # handle the server reply and initialise to the variable data
+                for buffer in recv:  # loop through every reply by the server
+                    data = buffer.recv(BUFLEN)  # handle the server reply and initialise to the variable data
                     # set the target to send to based on the buffer stated
                     if buffer is self.request:
                         target = self.client_sock
@@ -126,12 +126,14 @@ class TCPHandler(socketserver.BaseRequestHandler):
                         target = self.request
                     if data:
                         try:
-                            target.send(data) # send the buffer data to the target
-                            request_timeout = 0 # reset the counter
+                            target.send(data)  # send the buffer data to the target
+                            request_timeout = 0  # reset the counter
                         except:
                             pass
+            else:
+                break
 
-            if request_timeout == TIMEOUT: # request timeout if the request is too long, break the connection
+            if request_timeout == TIMEOUT:  # request timeout if the request is too long, break the connection
                 break
 
 
@@ -141,7 +143,7 @@ class TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", int(sys.argv[1]) # get the user input
+    HOST, PORT = "localhost", int(sys.argv[1])  # get the user input
     print("[*] Listening on Port number %d" % PORT)
     print("[*] Initialising Server with MultiThread")
 
