@@ -10,6 +10,10 @@ __version__ = '0.1.0 Draft 1'  # specify version for http header
 VERSION = 'Proxy/' + __version__  # specify the proxy version for the http header
 TIMEOUT = 20  # set the request timeout
 
+"""
+Function that check if the host request by the client is a valid url. 
+"""
+
 
 def url_validation(url):
     # regex to check if the url is valid or not
@@ -25,83 +29,109 @@ class TCPHandler(socketserver.BaseRequestHandler):
     def handle(self):
         # receive the client url request and add to buffer_data
         self.buffer_data = self.request.recv(BUFLEN)
+
+        # retrieve the connection method, protocol, and the host the client is requesting
         self.conn_method, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
 
+        # CONNECT header is the HTTPS request
         if self.conn_method == 'CONNECT':
             try:
-                self.connect(self.host)
+                self.connect(self.host)  # create the socket connection to the host
+                # construct the HTTP header and send it back to the client
                 self.request.send(
                     bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
-                print("[*] Request for HTTPS: %s Done" % self.host)
-                self.buffer_data = b''
-                self.view_page()
+                print("[*] Request for HTTPS: %s --- Done" % self.host)
+                self.buffer_data = b''  # reset the buffer data to empty bytes
+                self.view_page()  # wait for client reply and then send the next http to view the web page
             except:
                 pass
 
+        # Get the other connection method like the HTTP
         elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
             try:
-                self.connect(self.host)
-                self.client_sock.send(self.buffer_data)
-                print("[*] Request for HTTP: %s Done" % self.host)
-                self.buffer_data = b''
-                self.view_page()
+                self.connect(self.host)  # create the socket connection to the host
+                self.client_sock.send(self.buffer_data)  # send the buffer data to the client
+                print("[*] Request for HTTP: %s --- Done" % self.host)
+                self.buffer_data = b''  # reset the buffer data to empty bytes
+                self.view_page()  # wait for client reply and then send the next http to view the web page
             except:
                 pass
 
-        self.request.close()
+        self.request.close()  # close the request handler
+
+    """
+    Function that split and handlers the data to return its host, protocol and connection method
+    """
 
     def data_handler(self, data):
-        data_split = data.split()
-        conn_method = data_split[0]
-        protocol = data_split[2]
-        host = data_split[4]
+        data_split = data.split()  # split the buffer_data
+        conn_method = data_split[0]  # retrieve the connectio method
+        protocol = data_split[2]  # retrieve the protocol (HTTP / HTTPS)
+        host = data_split[4]  # retrieve the server and port the client is requesting
 
-        if url_validation(host) is False:
-            self.request.close()
+        if url_validation(host) is False:  # check to see if the host is valid or not
+            self.request.close()  # close the connection if the host is not valid
 
+        # return the connection method, protocol and host in form of tuple
         return (conn_method, protocol, host)
 
-    def connect(self, host):
-        host_port = re.search("(.*):(\d+)", host)
-        if host_port:
-            host = host_port.group(1)
-            port_no = int(host_port.group(2))
-        else:
-            port_no = 80
+    """
+    Function that create the socket connection with the client to send data over from the proxy server to the client server
+    """
 
-        # Get the address information
-        address = (host, port_no)
+    def connect(self, host):
+        host_port = re.search("(.*):(\d+)", host)  # regex to search for its host and its port
+        if host_port:
+            host = host_port.group(1)  # retrieve the host
+            port_no = int(host_port.group(2))  # retrieve the port no
+        else:
+            port_no = 80  # default HTTP port. Assign it as the default port number if request is HTTP
+
+        address = (host, port_no)  # Construct the address in form of tuple
 
         try:
             # create the socket connection
             self.client_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self.client_sock.connect(address)
+            self.client_sock.connect(address)  # connect to the host server
         except:
             pass
 
+    """
+    Function that handles the server reply and sending the buffer_data to the client to view the requested webpage
+    Using of the select function to filter out:
+    1. Recv -- buffer data from the server reply
+    2. _ -- empty set
+    3. error -- error msg if socket have an error
+    
+    * Select *
+    Read More: https://pymotw.com/2/select/
+    """
+
     def view_page(self):
-        socs = [self.request, self.client_sock]
-        time_counter = 0
+        socks = [self.request, self.client_sock]  # create the sockets list, client and server
+        request_timeout = 0  # initialise the timer counter
         while True:
-            time_counter += 1
-            (recv, _, error) = select.select(socs, [], socs, 3)
-            if error:
+            request_timeout += 1  # start the timeout counter
+            (recv, _, error) = select.select(socks, [], socks)  # retrieve the server reply, and error if any
+
+            if error:  # break if an error occur during the trasmission
                 break
-            if recv:
-                for in_ in recv:
-                    data = in_.recv(BUFLEN)
-                    if in_ is self.request:
-                        out = self.client_sock
+            if recv:  # if the server reply back
+                for buffer in recv: # loop through every reply by the server
+                    data = buffer.recv(BUFLEN) # handle the server reply and initialise to the variable data
+                    # set the target to send to based on the buffer stated
+                    if buffer is self.request:
+                        target = self.client_sock
                     else:
-                        out = self.request
+                        target = self.request
                     if data:
                         try:
-                            out.send(data)
-                            time_counter = 0
+                            target.send(data) # send the buffer data to the target
+                            request_timeout = 0 # reset the counter
                         except:
                             pass
 
-            if time_counter == TIMEOUT:
+            if request_timeout == TIMEOUT: # request timeout if the request is too long, break the connection
                 break
 
 
@@ -111,7 +141,7 @@ class TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
 
 
 if __name__ == "__main__":
-    HOST, PORT = "localhost", int(sys.argv[1])
+    HOST, PORT = "localhost", int(sys.argv[1]) # get the user input
     print("[*] Listening on Port number %d" % PORT)
     print("[*] Initialising Server with MultiThread")
 
