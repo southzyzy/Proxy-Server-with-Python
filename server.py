@@ -1,23 +1,29 @@
-import socket, select, re
+import socket
+import select
+import re
+import sys
 import threading
 import socketserver
 
-BUFLEN = 8192
-__version__ = '0.1.0 Draft 1'
-VERSION = 'Proxy/' + __version__
-TIMEOUT = 20
+BUFLEN = 8192  # buffer length
+__version__ = '0.1.0 Draft 1'  # specify version for http header
+VERSION = 'Proxy/' + __version__  # specify the proxy version for the http header
+TIMEOUT = 20  # set the request timeout
 
 
 def url_validation(url):
+    # regex to check if the url is valid or not
     url_valid = re.match("^(?:http(s)?:\/\/)?[\w.-]+(?:\.[\w\.-]+)+[\w\-\._~:/?#[\]@!\$&'\(\)\*\+,;=.]+$", url)
+    # return False if the url is not valid
     if not url_valid:
         return False
-
+    # else return True
     return True
 
 
-class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
+class TCPHandler(socketserver.BaseRequestHandler):
     def handle(self):
+        # receive the client url request and add to buffer_data
         self.buffer_data = self.request.recv(BUFLEN)
         self.conn_method, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
 
@@ -99,18 +105,21 @@ class ThreadedTCPRequestHandler(socketserver.BaseRequestHandler):
                 break
 
 
-class ThreadedTCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
+# To build asynchronous handlers, use the ThreadingMixIn and ForkingMixIn classes.
+class TCPServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     pass
 
 
 if __name__ == "__main__":
-    # Port 0 means to select an arbitrary unused port
-    HOST, PORT = "localhost", 7
+    HOST, PORT = "localhost", int(sys.argv[1])
     print("[*] Listening on Port number %d" % PORT)
     print("[*] Initialising Server with MultiThread")
 
-    server = ThreadedTCPServer((HOST, PORT), ThreadedTCPRequestHandler)
+    # start the tcp server
+    server = TCPServer((HOST, PORT), TCPHandler)
+    # start the thread module to thread the server
     server_thread = threading.Thread(target=server.serve_forever)
+    # start the thread
     server_thread.start()
 
     print("[*] Server Bind and waiting for connection ...")
