@@ -6,8 +6,6 @@ import threading
 import socketserver
 
 BUFLEN = 8192  # buffer length
-__version__ = '0.1.0 Draft 1'  # specify version for http header
-VERSION = 'Proxy/' + __version__  # specify the proxy version for the http header
 TIMEOUT = 20  # set the request timeout
 
 """
@@ -39,7 +37,7 @@ class TCPHandler(socketserver.BaseRequestHandler):
                 self.connect(self.host)  # create the socket connection to the host
                 # construct the HTTP header and send it back to the client
                 self.request.send(
-                    bytes(self.protocol + ' 200 Connection established\n' + 'Proxy-agent: %s\n\n' % VERSION, 'utf-8'))
+                    bytes(self.protocol + ' 200 Connection established\r\n\r\n', 'utf-8'))
                 print("[*] Request for HTTPS: %s --- Done" % self.host)
                 self.buffer_data = b''  # reset the buffer data to empty bytes
                 self.view_page()  # wait for client reply and then send the next http to view the web page
