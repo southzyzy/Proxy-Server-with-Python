@@ -25,15 +25,15 @@ def url_validation(url):
 
 class TCPHandler(socketserver.BaseRequestHandler):
     def handle(self):
-        # receive the client url request and add to buffer_data
-        self.buffer_data = self.request.recv(BUFLEN)
+        try:
+            # receive the client url request and add to buffer_data
+            self.buffer_data = self.request.recv(BUFLEN)
 
-        # retrieve the connection method, protocol, and the host the client is requesting
-        self.conn_method, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
+            # retrieve the connection method, protocol, and the host the client is requesting
+            self.conn_method, self.protocol, self.host = self.data_handler(str(self.buffer_data, 'ascii'))
 
-        # CONNECT header is the HTTPS request
-        if self.conn_method == 'CONNECT':
-            try:
+            # CONNECT header is the HTTPS request
+            if self.conn_method == 'CONNECT':
                 self.connect(self.host)  # create the socket connection to the host
                 # construct the HTTP header and send it back to the client
                 self.request.send(
@@ -41,19 +41,18 @@ class TCPHandler(socketserver.BaseRequestHandler):
                 print("[*] Request for HTTPS: %s --- Done" % self.host)
                 self.buffer_data = b''  # reset the buffer data to empty bytes
                 self.view_page()  # wait for client reply and then send the next http to view the web page
-            except:
-                pass
 
-        # Get the other connection method like the HTTP
-        elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
-            try:
+
+            # Get the other connection method like the HTTP
+            elif self.conn_method in ['OPTIONS', 'GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'TRACE']:
                 self.connect(self.host)  # create the socket connection to the host
                 self.client_sock.send(self.buffer_data)  # send the buffer data to the client
                 print("[*] Request for HTTP: %s --- Done" % self.host)
                 self.buffer_data = b''  # reset the buffer data to empty bytes
                 self.view_page()  # wait for client reply and then send the next http to view the web page
-            except:
-                pass
+
+        except:
+            pass
 
         self.request.close()  # close the request handler
 
@@ -63,15 +62,18 @@ class TCPHandler(socketserver.BaseRequestHandler):
 
     def data_handler(self, data):
         data_split = data.split()  # split the buffer_data
-        conn_method = data_split[0]  # retrieve the connectio method
-        protocol = data_split[2]  # retrieve the protocol (HTTP / HTTPS)
-        host = data_split[4]  # retrieve the server and port the client is requesting
+        if data_split:
+            conn_method = data_split[0]  # retrieve the connection method
+            protocol = data_split[2]  # retrieve the protocol (HTTP / HTTPS)
+            host = data_split[4]  # retrieve the server and port the client is requesting
 
-        if url_validation(host) is False:  # check to see if the host is valid or not
-            self.request.close()  # close the connection if the host is not valid
+            if url_validation(host) is False:  # check to see if the host is valid or not
+                self.request.close()  # close the connection if the host is not valid
 
-        # return the connection method, protocol and host in form of tuple
-        return (conn_method, protocol, host)
+            # return the connection method, protocol and host in form of tuple
+            return (conn_method, protocol, host)
+        else:
+            self.request.close()
 
     """
     Function that create the socket connection with the client to send data over from the proxy server to the client server
