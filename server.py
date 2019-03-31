@@ -1,3 +1,18 @@
+"""
+School of Infocomm Technology
+Information and Communications Technology (Information Security), BEng (Hons)
+
+ICT-1010 Computer Networks Assignment 2 - Socket Programming
+
+Authors: Tan Zhao Yea (1802992) && Stanley Cheong (1802986)
+Class: P2
+Lab Group - P5
+Academic Year 2018 - 2019
+Lecturer: Dr. Woo Wing Keong
+
+Submission Date: 5th April 2019
+"""
+
 import socket
 import select
 import re
